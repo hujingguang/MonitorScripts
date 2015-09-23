@@ -1,37 +1,38 @@
 #!/usr/bin/python
-import.netmands
+import commands
 import time
 import os
 import sys
-WEB_BACKENDS={'www.kldjy.net':['192.168.168.121:8080','192.168.168.123:80'],
-        'iphone.kldjy.net':['192.168.168.121:80','192.168.168.123:80'],
-        'user.xixixi.net':['192.168.168.119:80/checkstatus.php','192.168.168.124:80/checkstatus.php'],
-        'sv.xixixi.net':['192.168.168.103:80','192.168.168.104:80'],
-        'umsa.xixixi.net':['192.168.168.105:80'],
-        'ums.xixixi.net':['192.168.168.117:88/release/checkstatus.ums','192.168.168.118:88/release/checkstatus.ums','192.168.168.128:88/release/checkstatus.ums'],
-        'kz.xixixi.net.net':['192.168.169.31:80/checkstatus.php','192.168.169.33/checkstatus.php'],
-        'qcode.xixixi.net':['192.168.168.103:80/checkstatus.php','192.168.168.104:80/checkstatus.php'],
-        'open.xixixi.net':['192.168.168.103:80/checkstatus.php','192.168.168.104:80/checkstatus.php'],
-        'map.xixixi.net':['192.168.168.103:80/checkstatus.php','192.168.168.104:80/checkstatus.php'],
-        'weixin.xixixi.net':['192.168.168.103:80/checkstatus.php','192.168.168.104:80/checkstatus.php'],
-        'boss.xixixi.net':['192.168.168.101:80/checkstatus.php'],
-        'channel.xixixi.net':['192.168.168.102:80/checkstatus.php','192.168.168.106:80/checkstatus.php'],
-        'shop.xixixi.net':['192.168.168.102:80/checkstatus.php','192.168.168.106:80/checkstatus.php'],
-        'img1.kldjy.net':['192.168.168.137:80','192.168.168.114:80'],
-        'www.xixixi.net':['192.168.168.102:80','192.168.168.106:80'],
-        'www.navione.net':['192.168.168.102:80','192.168.168.106:80'],
-        'lbs.xixixi.net':['192.168.168.120:80/ds/'],
-        'hy.xixixi.net':['192.168.168.103:80','192.168.168.104:80'],
-        'hnradio.kldlk.net':['192.168.168.120:80'],
-        'navi.xixixi.net':['192.168.169.21:80/cgi/cgi_test.ums?test=cgitest','192.168.169.22:80/cgi/cgi_test.ums?test=cgitest','192.168.169.23:80/cgi/cgi_test.ums?test=cgitest','192.168.169.36:80/cgi/cgi_test.ums?test=cgitest','192.168.169.37:80/cgi/cgi_test.ums?test=cgitest','192.168.169.38:80/cgi/cgi_test.ums?test=cgitest','192.168.169.39:80/cgi/cgi_test.ums?test=cgitest','192.168.169.40:80/cgi/cgi_test.ums?test=cgitest','192.168.169.41:80/cgi/cgi_test.ums?test=cgitest'],
-        'st.xixixi.net':['192.168.168.109/tc/controlpanel/login.php','192.168.168.113/tc/controlpanel/login.php','192.168.168.112/tc/controlpanel/login.php','192.168.168.107/tc/controlpanel/login.php'],
-        'hyapi.xixixi.net':['192.168.168.102:80/checkstatus.php','192.168.168.106:80/checkstatus.php']
+import subprocess
+WEB_BACKENDS={'www.kldjy.com':['192.168.168.121:80','192.168.168.123:80'],
+        'iphone.kldjy.com':['192.168.168.121:80','192.168.168.123:80'],
+        'user.xixixi.com.cn':['192.168.168.119:80/checkstatus.php','192.168.168.124:80/checkstatus.php'],
+        'sv.xixixi.com.cn':['192.168.168.103:80','192.168.168.104:80'],
+        'umsa.xixixi.com.cn':['192.168.168.105:80'],
+        'ums.xixixi.com.cn':['192.168.168.117:88/release/checkstatus.ums','192.168.168.118:88/release/checkstatus.ums','192.168.168.128:88/release/checkstatus.ums'],
+        'kz.xixixi.com.cn':['192.168.169.31:80/checkstatus.php','192.168.169.33/checkstatus.php'],
+        'qcode.xixixi.com.cn':['192.168.168.103:80/checkstatus.php','192.168.168.104:80/checkstatus.php'],
+        'open.xixixi.com.cn':['192.168.168.103:80/checkstatus.php','192.168.168.104:80/checkstatus.php'],
+        'map.xixixi.com.cn':['192.168.168.103:80/checkstatus.php','192.168.168.104:80/checkstatus.php'],
+        'weixin.xixixi.com.cn':['192.168.168.103:80/checkstatus.php','192.168.168.104:80/checkstatus.php'],
+        'boss.xixixi.com.cn':['192.168.168.101:80/checkstatus.php'],
+        'channel.xixixi.com.cn':['192.168.168.102:80/checkstatus.php','192.168.168.106:80/checkstatus.php'],
+        'shop.xixixi.com.cn':['192.168.168.102:80/checkstatus.php','192.168.168.106:80/checkstatus.php'],
+        'img1.kldjy.com':['192.168.168.137:80','192.168.168.114:80'],
+        'www.xixixi.com.cn':['192.168.168.102:80','192.168.168.106:80'],
+        'www.navione.com.cn':['192.168.168.102:80','192.168.168.106:80'],
+        'lbs.xixixi.com.cn':['192.168.168.120:80/ds/'],
+        'hy.xixixi.com.cn':['192.168.168.103:80','192.168.168.104:80'],
+        'hnradio.kldlk.com':['192.168.168.120:80'],
+        'navi.xixixi.com.cn':['192.168.169.21:80/cgi/cgi_test.ums?test=cgitest','192.168.169.22:80/cgi/cgi_test.ums?test=cgitest','192.168.169.23:80/cgi/cgi_test.ums?test=cgitest','192.168.169.36:80/cgi/cgi_test.ums?test=cgitest','192.168.169.37:80/cgi/cgi_test.ums?test=cgitest','192.168.169.38:80/cgi/cgi_test.ums?test=cgitest','192.168.169.39:80/cgi/cgi_test.ums?test=cgitest','192.168.169.40:80/cgi/cgi_test.ums?test=cgitest','192.168.169.41:80/cgi/cgi_test.ums?test=cgitest'],
+        'st.xixixi.com.cn':['192.168.168.109/tc/controlpanel/login.php','192.168.168.113/tc/controlpanel/login.php','192.168.168.112/tc/controlpanel/login.php','192.168.168.107/tc/controlpanel/login.php'],
+        'hyapi.xixixi.com.cn':['192.168.168.102:80/checkstatus.php','192.168.168.106:80/checkstatus.php']
         }
 
 
 def check_backend(domain,url):
     cmd='curl --head -H "Host:%s" %s |grep "200 OK" &>/dev/null' %(domain,url)
-    res.netmands.getstatusoutput(cmd)
+    res=commands.getstatusoutput(cmd)
     if res[0] !=0:
         return True
 
@@ -53,12 +54,12 @@ def main(domain,Hosts):
                 pass
                 #print 'the domain: %s   backend: %s  is ok' %(domain,backend)
         if flag:
-           .netments=domain+"-Backends-"
+            comments=domain+"-Backends-"
             for h in hosts:
-               .netments.netments+h+"-Failed"
+                comments=comments+h+"-Failed"
             f_name='/tmp/%s' %domain
             f=open(f_name,'w')
-            f.write.netments)
+            f.write(comments)
             f.close()
         else:
             pass            
