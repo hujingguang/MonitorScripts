@@ -89,7 +89,7 @@ if __name__== '__main__':
     
     res=os.system('ls /tmp/.domain_* &>/dev/null')
     if res == 0:
-        res,out=commands.getstatusoutput(r'ls /tmp/.domain_*')
+        res,out.netmands.getstatusoutput(r'ls /tmp/.domain_*')
         recovery={}
         for var in out.split('\n'):
            List=var.strip().split('_')
