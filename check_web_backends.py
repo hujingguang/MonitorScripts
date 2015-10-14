@@ -3,30 +3,32 @@ import commands
 import time
 import os
 import sys
-import subprocess
+
+__author__='Hoo'
+
 WEB_BACKENDS={'www.kldjy.com':['192.168.168.121:80','192.168.168.123:80'],
         'iphone.kldjy.com':['192.168.168.121:80','192.168.168.123:80'],
-        'user.xixixi.com.cn':['192.168.168.119:80/checkstatus.php','192.168.168.124:80/checkstatus.php'],
-        'sv.xixixi.com.cn':['192.168.168.103:80','192.168.168.104:80'],
-        'umsa.xixixi.com.cn':['192.168.168.105:80'],
-        'ums.xixixi.com.cn':['192.168.168.117:88/release/checkstatus.ums','192.168.168.118:88/release/checkstatus.ums','192.168.168.128:88/release/checkstatus.ums'],
-        'kz.xixixi.com.cn':['192.168.169.31:80/checkstatus.php','192.168.169.33/checkstatus.php'],
-        'qcode.xixixi.com.cn':['192.168.168.103:80/checkstatus.php','192.168.168.104:80/checkstatus.php'],
-        'open.xixixi.com.cn':['192.168.168.103:80/checkstatus.php','192.168.168.104:80/checkstatus.php'],
-        'map.xixixi.com.cn':['192.168.168.103:80/checkstatus.php','192.168.168.104:80/checkstatus.php'],
-        'weixin.xixixi.com.cn':['192.168.168.103:80/checkstatus.php','192.168.168.104:80/checkstatus.php'],
-        'boss.xixixi.com.cn':['192.168.168.101:80/checkstatus.php'],
-        'channel.xixixi.com.cn':['192.168.168.102:80/checkstatus.php','192.168.168.106:80/checkstatus.php'],
-        'shop.xixixi.com.cn':['192.168.168.102:80/checkstatus.php','192.168.168.106:80/checkstatus.php'],
+        'user.careland.com.cn':['192.168.168.119:80/checkstatus.php','192.168.168.124:80/checkstatus.php'],
+        'sv.careland.com.cn':['192.168.168.103:80','192.168.168.104:80'],
+        'umsa.careland.com.cn':['192.168.168.105:80'],
+        'ums.careland.com.cn':['192.168.168.117:88/release/checkstatus.ums','192.168.168.118:88/release/checkstatus.ums','192.168.168.128:88/release/checkstatus.ums'],
+        'kz.careland.com.cn':['192.168.169.31:80/checkstatus.php','192.168.169.33:80/checkstatus.php'],
+        'qcode.careland.com.cn':['192.168.168.103:80/checkstatus.php','192.168.168.104:80/checkstatus.php'],
+        'open.careland.com.cn':['192.168.168.103:80/checkstatus.php','192.168.168.104:80/checkstatus.php'],
+        'map.careland.com.cn':['192.168.168.103:80/checkstatus.php','192.168.168.104:80/checkstatus.php'],
+        'weixin.careland.com.cn':['192.168.168.103:80/checkstatus.php','192.168.168.104:80/checkstatus.php'],
+        'boss.careland.com.cn':['192.168.168.101:80/checkstatus.php'],
+        'channel.careland.com.cn':['192.168.168.102:80/checkstatus.php','192.168.168.106:80/checkstatus.php'],
+        'shop.careland.com.cn':['192.168.168.102:80/checkstatus.php','192.168.168.106:80/checkstatus.php'],
         'img1.kldjy.com':['192.168.168.137:80','192.168.168.114:80'],
-        'www.xixixi.com.cn':['192.168.168.102:80','192.168.168.106:80'],
+        'www.careland.com.cn':['192.168.168.102:80','192.168.168.106:80'],
         'www.navione.com.cn':['192.168.168.102:80','192.168.168.106:80'],
-        'lbs.xixixi.com.cn':['192.168.168.120:80/ds/'],
-        'hy.xixixi.com.cn':['192.168.168.103:80','192.168.168.104:80'],
+        'lbs.careland.com.cn':['192.168.168.120:80/ds/'],
+        'hy.careland.com.cn':['192.168.168.103:80','192.168.168.104:80'],
         'hnradio.kldlk.com':['192.168.168.120:80'],
-        'navi.xixixi.com.cn':['192.168.169.21:80/cgi/cgi_test.ums?test=cgitest','192.168.169.22:80/cgi/cgi_test.ums?test=cgitest','192.168.169.23:80/cgi/cgi_test.ums?test=cgitest','192.168.169.36:80/cgi/cgi_test.ums?test=cgitest','192.168.169.37:80/cgi/cgi_test.ums?test=cgitest','192.168.169.38:80/cgi/cgi_test.ums?test=cgitest','192.168.169.39:80/cgi/cgi_test.ums?test=cgitest','192.168.169.40:80/cgi/cgi_test.ums?test=cgitest','192.168.169.41:80/cgi/cgi_test.ums?test=cgitest'],
-        'st.xixixi.com.cn':['192.168.168.109/tc/controlpanel/login.php','192.168.168.113/tc/controlpanel/login.php','192.168.168.112/tc/controlpanel/login.php','192.168.168.107/tc/controlpanel/login.php'],
-        'hyapi.xixixi.com.cn':['192.168.168.102:80/checkstatus.php','192.168.168.106:80/checkstatus.php']
+        'navi.careland.com.cn':['192.168.169.21:80/cgi/cgi_test.ums?test=cgitest','192.168.169.22:80/cgi/cgi_test.ums?test=cgitest','192.168.169.23:80/cgi/cgi_test.ums?test=cgitest','192.168.169.36:80/cgi/cgi_test.ums?test=cgitest','192.168.169.37:80/cgi/cgi_test.ums?test=cgitest','192.168.169.38:80/cgi/cgi_test.ums?test=cgitest','192.168.169.39:80/cgi/cgi_test.ums?test=cgitest','192.168.169.40:80/cgi/cgi_test.ums?test=cgitest','192.168.169.41:80/cgi/cgi_test.ums?test=cgitest'],
+        'st.careland.com.cn':['192.168.168.109/tc/controlpanel/login.php','192.168.168.113/tc/controlpanel/login.php','192.168.168.112/tc/controlpanel/login.php','192.168.168.107/tc/controlpanel/login.php'],
+        'hyapi.careland.com.cn':['192.168.168.102:80/checkstatus.php','192.168.168.106:80/checkstatus.php']
         }
 
 
@@ -38,7 +40,7 @@ def check_backend(domain,url):
 
 Old_Hosts={}
 New_Hosts={}
-
+Rate=60
 def main(domain,Hosts):
     if domain in WEB_BACKENDS:
         hosts=[]
@@ -68,12 +70,12 @@ def main(domain,Hosts):
 
 
 
-
-if __name__== '__main__':
+def start():
+    global WEB_BACKENDS,Old_Hosts,New_Hosts,Rate
     list=[]
     for i in WEB_BACKENDS.iterkeys():
         main(i,Old_Hosts)
-    time.sleep(180)
+    time.sleep(Rate)
     for i in WEB_BACKENDS.iterkeys():
         main(i,New_Hosts)
     if New_Hosts:
@@ -116,8 +118,9 @@ if __name__== '__main__':
                                    print 'host_ip: %s recovery ' %fail_host
                                    f='/tmp/.domain_%s_%s' %(fail_domain,fail_host)
                                    os.system('rm -f %s' %f)                                  
-                                   messages="OK_:%s__%s__has_Recover" %(fail_domain,fail_host)
+                                   messages="OK_:%s__%s__has_Recovered" %(fail_domain,fail_host)
                                    os.system('bash /soft/zabbix/share/zabbix/alertscripts/web_backend.sh "%s"' %messages)
                                    print 'send recovery sms'
-          
+if __name__ == '__main__':
+    start()    
                            
