@@ -14,7 +14,6 @@ def get_net_status_counts(lport,status,dst_port=None):
 	raise 'Bad net connnections status' 
     if dst_port:
 	for conn in conns:
-	    print conn
 	    if conn.status == status and conn.raddr[1] == dst_port and conn.pid==pid:
 		counts=counts+1
     else:
