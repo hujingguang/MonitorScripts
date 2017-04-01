@@ -271,6 +271,7 @@ def start_scaling(group_name,region,num,slb_id,image_id,instance_type,security_i
 		break
 	    elif __query_scaling_activity_status(group_id,active_id,region,status[2]):
 		if flag:
+		    flag=False
 		    logging.info(u'正在执行伸缩活动,请稍后....')
 		time.sleep(5)
 	    elif __query_scaling_activity_status(group_id,active_id,region,status[1]):
