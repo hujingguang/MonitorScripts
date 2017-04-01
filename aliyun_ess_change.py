@@ -109,6 +109,7 @@ def create_scaling_group(group_name,region,maxsize,slb_id,minsize=0,default_cool
 	request=CreateScalingGroupRequest()
 	request.set_MinSize(minsize)
 	request.set_MaxSize(maxsize)
+	slb_id='["'+slb_id+'"]'
 	request.set_LoadBalancerId(slb_id)
 	request.set_ScalingGroupName(group_name)
 	request.set_DefaultCooldown(default_cool_down)
