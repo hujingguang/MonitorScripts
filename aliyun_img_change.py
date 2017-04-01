@@ -66,7 +66,7 @@ def get_img_from_region(region,status='Available'):
     request=DescribeImagesRequest()
     request.set_accept_format('json')
     request.set_Status(status)
-    result=json.loads(client.do_action(request))
+    result=json.loads(client.do_action_with_exception(request))
     images=dict()
     for k,v in result.iteritems():
 	if k == 'Images':
@@ -97,11 +97,11 @@ def change_image(host,img_name_suffix='copy',option='add'):
 	if option == 'add':
 	    if conbine_img_name in get_img_from_region(region_and_id[0],status='Creating'):
 		logging.warn('the image: %s is be creating . please wait' %conbine_img_name)
-	    else:
+	    elif conbine_img_name in get_img_from_region(region_and_id[0]):
 		logging.info('the image is exists,begin to delete %s images' %conbine_img_name)
 		img_id=images[conbine_img_name]['ImageId']
-		if __delete_image(img_id,region_and_id[0]):
-	            __create_image(region_and_id[1],conbine_img_name,region_and_id[0])
+		__delete_image(img_id,region_and_id[0])
+	    __create_image(region_and_id[1],conbine_img_name,region_and_id[0])
 	elif option == 'del':
 	    if conbine_img_name in get_img_from_region(region_and_id[0],status='Creating'):
 		logging.warn('the image: %s is be creating . can not delete by API' %conbine_img_name)
@@ -120,7 +120,7 @@ def __delete_image(img_id,region):
     d_request=DeleteImageRequest()
     d_request.set_accept_format('json')
     d_request.set_ImageId(img_id)
-    result=json.loads(client.do_action(d_request))
+    result=json.loads(client.do_action_with_exception(d_request))
     if 'Code' in result:
 	logging.warn('remove image failed')
 	logging.error('remove failed . message: ' %result['Message'])
@@ -136,7 +136,7 @@ def __create_image(host_id,img_name,region):
     c_request.set_accept_format('json')
     c_request.set_ImageName(img_name)
     c_request.set_InstanceId(host_id)
-    result=json.loads(client.do_action(c_request))
+    result=json.loads(client.do_action_with_exception(c_request))
     if 'Code' in result:
 	logging.warn('the image: %s  can not  be creating now ! please wait' %img_name)
     else:

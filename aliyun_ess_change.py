@@ -72,7 +72,7 @@ def do_action(request,region):
     client=__get_client(region)
     request.set_accept_format('json')
     try:
-	result=json.loads(client.do_action(request))
+	result=json.loads(client.do_action_with_exception(request))
     except Exception as e:
 	logging.error('Bad Region Name')
 	sys.exit(1)
