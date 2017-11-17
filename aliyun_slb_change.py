@@ -53,7 +53,7 @@ class SlbAction(object):
 	req.set_LoadBalancerId(slb_id)
 	req.set_BackendServers(servers_list)
 	req.set_accept_format('json')
-	result=json.loads(self.client.do_action(req))
+	result=json.loads(self.client.do_action_with_exception(req))
         if 'BackendServers' not in result.keys():
 	    print 'Delete Backend Server Failed.........'
 	    sys.exit(1)
@@ -83,7 +83,7 @@ class SlbAction(object):
 	req.set_LoadBalancerId(slb_id)
 	req.set_BackendServers(servers_list)
 	req.set_accept_format('json')
-	result=json.loads(self.client.do_action(req))
+	result=json.loads(self.client.do_action_with_exception(req))
         if 'BackendServers' not in result.keys():
 	    print 'Add Backend Server Failed.........'
 	    print result
