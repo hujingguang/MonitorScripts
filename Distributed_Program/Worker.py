@@ -218,7 +218,7 @@ class Worker(object):
 	    query_queue=self.manager.get_query_queue()
 	    try:
 		for i in range(LINE_PER_SEC):
-		    ret_list=query_queue.get(timeout=1)
+		    ret_list=query_queue.get(timeout=5)
 		    ret_list=self.query_from_api(ret_list)
 		    data_list.append(ret_list)
 	    except Exception,e:

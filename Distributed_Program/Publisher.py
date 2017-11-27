@@ -29,7 +29,7 @@ LOG_INFO={
 DB_INFO={
 	'db_name':'gddb',
 	'db_user':'publisher',
-	'db_password':'publisher',
+	'db_password':'publisher@mth',
 	'db_host':'10.45.23.148',
 	'db_port':3306,
 	}
@@ -240,6 +240,25 @@ class Publisher(object):
 	if self.manager:
 	    self.manager.shutdown()
 
+    def is_manual_off_shelf(self,goods_id):
+	if self.db.is_connect():
+	    self.db.connect()
+	if not goods_id:
+	    return True
+	sql='select status from ps_goods where goods_id="%s" and status="off_shelf"' %(goods_id)
+	cursor=self.db.cursor()
+	if cursor:
+	    try:
+		result=cursor.execute(sql)
+		if result == 1:
+		    return True
+	    except Exception,e:
+		self.logger.error(str(e))
+		self.logger.error('connect failed on is_manual_off_shelf')
+	    self.db.close()
+        return False
+
+
 
     def fill_buffer_dict(self):
 	self._diff_dict=dict()
@@ -307,31 +326,40 @@ class Publisher(object):
 
     def update(self):
 	ret_queue=self.manager.get_ret_queue()
+	query_queue=self.manager.get_query_queue()
 	self.logger.info('start Update Thread')
 	while True:
 	    num=0
 	    try:
+		recv_num=0
 		while True:
-		    return_data=ret_queue.get(timeout=2)
+		    return_data=ret_queue.get(timeout=3)
+		    recv_num=recv_num+1
+		    #self.logger.info(str(return_data))
 		    if len(return_data)<4:
 			self.logger.info('Invalied Return Data In Queue,Skip It')
 			continue
 		    goods_id=return_data[0]
 		    goods_code=return_data[1]
 		    status=return_data[3]
+		    if self.is_manual_off_shelf(goods_id):
+			self.logger.info('goods_id: %s  is manual off shelf . skip it')
+			num=num+1
+			continue
 		    if status == 'off':
 			self.change_status(goods_id,goods_code)
+			num=num+1
 		    else:
 			remove_value=return_data[3]
 			return_data.remove(remove_value)
-			query_queue=self.manager.get_query_queue()
+			#query_queue=self.manager.get_query_queue()
 			query_queue.put(return_data)
-		    num=num+1
 	    except Exception,e:
 		self.total=self.total-num
-		self.logger.info('Total %d Line Parsed, Left Line:  %d' %(num,self.total))
-		self.logger.info('No data in Return Queue.  Sleep 30 sec')
-	    time.sleep(30) 
+		self.logger.info(str(e))
+		self.logger.info('Total %d Line Updated, Left Line:  %d' %(num,self.total))
+		self.logger.info('Receive %d Line.in Return Queue.  Sleep 10 sec' %(recv_num))
+	    time.sleep(10) 
      
 
     def main(self):
