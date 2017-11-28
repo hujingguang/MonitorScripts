@@ -16,11 +16,7 @@ import sys
 import MySQLdb
 import threading
 from datetime import datetime
-from multiprocessing import Process,Value
-from imp import reload
-
 __author__='Hoover'
-
 
 LOG_INFO={
 	'log_level':logging.INFO,
@@ -45,9 +41,6 @@ QUEUE_INFO={
 PID_FILE='/tmp/publisher/publisher.pid'
 QUERY_TIME=60
 DEBUG=False
-
-BaseManager.register('get_query_queue')
-BaseManager.register('get_ret_queue')
 
 def init_logger():
     global DEBUG,LOG_INFO
@@ -116,9 +109,12 @@ class Daemonize(object):
 	    if os.path.exists(self.pid_file):
 	        self.logger.error('the pid file exists. is running ?')
 		sys.exit(1)
-	    #print 'Start Publisher Success'
+	    print 'Start Publisher Success'
 	    self.daemonize()
-	main()
+	publisher=Publisher()
+	self.publisher=publisher
+	publisher.init_publisher()
+	publisher.main()
 	
 
     def stop(self):
@@ -126,24 +122,23 @@ class Daemonize(object):
 	    self.logger.warning('Stop failed. the pid_file do not exist !')
 	    sys.exit(1)
 	with open(self.pid_file,'r') as f:
-	    pid_list=f.readline().split(' ')
-	    pid_list.reverse()
-	    pid_list=frozenset(pid_list)
-	for pid in pid_list:
-	    os.system('kill -9 %s ' %pid)
-	#    try:
-	#	while True:
-	#	    os.kill(pid,SIGTERM)
-	#	    time.sleep(0.1)
-	#    except Exception,e:
-	#	e=str(e) 
-	#	if e.find('No such process'):
-	#	    print pid,'ok'
-	#	    pass
-	#	else:
-	#	    self.logger.error(e)
-        self.logger.info('Stop publisher process Success')
+	    pid=int(f.readline())
+	try:
+	    while True:
+		os.kill(pid,SIGTERM)
+		time.sleep(0.1)
+        except Exception,e:
+	    e=str(e) 
+	    if e.find('No such process'):
+		self.logger.info('Stop publisher process Success')
+	    else:
+		self.logger.error(e)
 	os.remove(self.pid_file)
+	print 'Stop Publisher Success'
+	cmd=r''' netstat -ntlp|grep Publisher|awk '{print $NF}'|awk -F'/' '{print $1}' > /tmp/.queue.pid'''
+	os.system(cmd)
+	with open('/tmp/.queue.pid','r') as f:
+	    os.system('kill -9 %s ' %(f.readline()))
 
     def restart(self):
 	self.stop()
@@ -209,60 +204,59 @@ class DBConnection(object):
 		self.logger.error(str(e))
    
 
-class QueueConnect(object):
+
+class Publisher(object):
     def __init__(self):
         self._buffer_dict=dict()
         self._diff_dict=dict()
-	self.logger=logging.getLogger('Publisher')
+        self._data_queue=Queue()
+        self._ret_queue=Queue()
+	self.db=DBConnection(DB_INFO)
+	self.manager=None
+	self.total=0
+	self.left=0
+        self.logger=logging.getLogger('Publisher')
+
+
+    def init_publisher(self):
+	BaseManager.register('get_query_queue',lambda:self._data_queue)
+	BaseManager.register('get_ret_queue',lambda:self._ret_queue)
 	ip=QUEUE_INFO.get('queue_ip','0.0.0.0')
 	port=QUEUE_INFO.get('queue_port',5000)
 	auth=QUEUE_INFO.get('queue_auth',None)
-	self.db=DBConnection(DB_INFO)
 	if auth:
 	    self.manager=BaseManager(address=(ip,port),authkey=auth)
 	else:
 	    self.manager=BaseManager(address=(ip,port))
+	try:
+	    self.manager.start()
+	    self.logger.info(str(os.getpid()))
+	    self.logger.info('Start Queue Listen')
+	except Exception ,e:
+	    self.logger.error(str(e))
+	    sys.exit(1)
 
-    def connect(self):
-        if self.manager:
+    def close_manager(self):
+	if self.manager:
+	    self.manager.shutdown()
+
+    def is_manual_off_shelf(self,goods_id):
+	if self.db.is_connect():
+	    self.db.connect()
+	if not goods_id:
+	    return True
+	sql='select status from ps_goods where goods_id="%s" and status="off_shelf"' %(goods_id)
+	cursor=self.db.cursor()
+	if cursor:
 	    try:
-		self.manager.connect()
-		return True
-            except Exception,e:
+		result=cursor.execute(sql)
+		if result == 1:
+		    return True
+	    except Exception,e:
 		self.logger.error(str(e))
+		self.logger.error('connect failed on is_manual_off_shelf')
+	    self.db.close()
         return False
-	 
-
-
-
-
-  
-
-class Fill(QueueConnect):
-
-    def __init__(self,total,ready):
-	self.total=total
-	self.ready=ready
-	super(Fill,self).__init__()
-
-    def clean_data(self):
-	query_queue=self.manager.get_query_queue()
-	ret_queue=self.manager.get_ret_queue()
-	if  query_queue.qsize() >0:
-	    try:
-		while True:
-		    query_queue.get(timeout=5)
-	    except Exception,e:
-		self.logger.info('Clear All Query Queue Data Success')
-	if ret_queue.qsize() >0:
-	    try:
-		while True:
-		    ret_queue.get(timeout=5)
-	    except Exception,e:
-		self.logger.info('Clear All Return Queue Data Success')
-	self.ready.value=1
-
-
 
 
 
@@ -272,6 +266,7 @@ class Fill(QueueConnect):
 	    self.db.connect()
 	cursor=self.db.cursor()
 	sql='select goods_id,goods_code,voucher_link from ps_goods where voucher_link != "" and status="on_shelf" ;'
+	#sql='select goods_id,goods_code,voucher_link from ps_goods where voucher_link != "";'
 	if cursor:
 	    try:
 		cursor.execute(sql)
@@ -281,8 +276,8 @@ class Fill(QueueConnect):
 			self._buffer_dict[data[0]]=[data[0],data[1],data[2]]
 			self._diff_dict[data[0]]=[data[0],data[1],data[2]]
 		diff=len(self._diff_dict)
-		self.total.value=self.total.value+diff
-		self.logger.info('Fill Counts: %d, Total Counts : %d ' %(diff,self.total.value))
+		self.total=self.total+diff
+		self.logger.info('Fill Counts: %d, Total Counts : %d ' %(diff,self.total))
 	    except Exception,e:
 		self.logger.error(str(e))
 	    self.db.close()
@@ -291,93 +286,56 @@ class Fill(QueueConnect):
 
     def sync_data(self):
 	data_queue=self.manager.get_query_queue()
+	ret_queue=self.manager.get_ret_queue()
 	for k,v in self._diff_dict.iteritems():
 	    data_queue.put(v)
-	self.logger.info('Query Queue Size: %d' %(data_queue.qsize()))
+	    
 
     def publish(self):
-	self.logger.info('start Fill Process')
-	setproctitle.setproctitle('Fill')
-	self.clean_data()
+	self.logger.info('start Publish Thread')
 	while True:
 	    self.fill_buffer_dict()
 	    self.sync_data()
 	    time.sleep(QUERY_TIME)
     
 
-class Update(QueueConnect):
-    def __init__(self,total,ready):
-	self.total=total
-	self.ready=ready
-	super(Update,self).__init__()
-    def is_manual_off_shelf(self,goods_id):
-	    if self.db.is_connect():
-		self.db.connect()
-	    if not goods_id:
-		return True
-	    sql='select status from ps_goods where goods_id="%s" and status="off_shelf"' %(goods_id)
-	    cursor=self.db.cursor()
-	    if cursor:
-		try:
-		    result=cursor.execute(sql)
-		    if result == 1:
-			return True
-		except Exception,e:
-		    self.logger.error(str(e))
-		    self.logger.error('connect failed on is_manual_off_shelf')
-		self.db.close()
-	    return False
-
-
-
     def change_status(self,goods_id,goods_code):
-	    if self.db.is_connect():
-		self.db.connect()
-	    cursor=self.db.cursor()
-	    if not cursor:
-		self.logger.error('can not connect to database , update failed')
-		return
-	    modify_date=datetime.strftime(datetime.now(),'%Y-%m-%d %H:%M:%S')
-	    offline_date=datetime.strftime(datetime.now(),'%Y-%m-%d %H:%M:%S')
-	    sql='''update ps_goods set status='off_shelf',offline_date='%s',modified_date='%s' where goods_id='%s' and goods_code='%s';''' %(modify_date,offline_date,goods_id,goods_code)
-	    try:
-		self.logger.info('UPDATE SQL: '+sql)
-		result=cursor.execute(sql)
-		self.db.commit()
-		self.logger.info('Update Success.   goods_id:  %s   goods_code:  %s   Update Result: %d' %(goods_id,goods_code,result))
-	    except Exception,e:
-		self.logger.error(str(e))
-		self.logger.info('Update Failed. goods_id: %s  goods_code: %s ' %(goods_id,goods_code))
-	    try:
-		cursor.close()
-	    except Exception,e:
-		self.logger.error(str(e))
+	if self.db.is_connect():
+	    self.db.connect()
+	cursor=self.db.cursor()
+	if not cursor:
+	    self.logger.error('can not connect to database , update failed')
+	    return
+	modify_date=datetime.strftime(datetime.now(),'%Y-%m-%d %H:%M:%S')
+	offline_date=datetime.strftime(datetime.now(),'%Y-%m-%d %H:%M:%S')
+	sql='''update ps_goods set status='off_shelf',offline_date='%s',modified_date='%s' where goods_id='%s' and goods_code='%s';''' %(modify_date,offline_date,goods_id,goods_code)
+	try:
+	    self.logger.info('UPDATE SQL: '+sql)
+	    result=cursor.execute(sql)
+	    self.db.commit()
+	    self.logger.info('Update Success.   goods_id:  %s   goods_code:  %s   Update Result: %d' %(goods_id,goods_code,result))
+	except Exception,e:
+	    self.logger.error(str(e))
+	    self.logger.info('Update Failed. goods_id: %s  goods_code: %s ' %(goods_id,goods_code))
+	try:
+	    cursor.close()
+	except Exception,e:
+	    self.logger.error(str(e))
 
 
 
     def update(self):
-	self.logger.info('start Update Process')
-	setproctitle.setproctitle('Update')
+	ret_queue=self.manager.get_ret_queue()
+	query_queue=self.manager.get_query_queue()
+	self.logger.info('start Update Thread')
 	while True:
-	    if self.ready.value==1:
-		self.logger.info('Ready Value is 1, Run Update Process')
-		break
-	    time.sleep(10)
-	while True:
-	    ret_queue=self.manager.get_ret_queue()
-	    query_queue=self.manager.get_query_queue()
 	    num=0
-	    return_data_list=list()
 	    try:
 		recv_num=0
-		max_num=0
 		while True:
-		    max_num=max_num+1
-		    if max_num > 200:
-			break
-		    time.sleep(0.1)
 		    return_data=ret_queue.get(timeout=3)
 		    recv_num=recv_num+1
+		    #self.logger.info(str(return_data))
 		    if len(return_data)<4:
 			self.logger.info('Invalied Return Data In Queue,Skip It')
 			continue
@@ -394,62 +352,25 @@ class Update(QueueConnect):
 		    else:
 			remove_value=return_data[3]
 			return_data.remove(remove_value)
-			return_data_list.append(return_data)
+			#query_queue=self.manager.get_query_queue()
+			query_queue.put(return_data)
 	    except Exception,e:
-		self.total.value=self.total.value-num
+		self.total=self.total-num
 		self.logger.info(str(e))
-		self.logger.info('Total %d Line Updated, Left Line:  %d' %(num,self.total.value))
-	    for d in return_data_list:
-		query_queue.put(d)
-	    del(return_data_list)
-	    self.logger.info('Receive %d Line.in Return Queue.  Sleep 10 sec' %(recv_num))
+		self.logger.info('Total %d Line Updated, Left Line:  %d' %(num,self.total))
+		self.logger.info('Receive %d Line.in Return Queue.  Sleep 10 sec' %(recv_num))
 	    time.sleep(10) 
      
 
-def fill_proc(total,ready):
-    fill_obj=Fill(total,ready)
-    logger=logging.getLogger('Publisher')
-    if fill_obj.connect():
-	logger.info('Init Queue Connection Success In Fill Process')
-    else:
-	logger.error('Init Queue Connection Failed In Fill Process !')
-	sys.exit(1)
-    try:
-        pid=os.getpid()
-        with open(PID_FILE,'a+') as f:
-	    f.write(' '+str(pid))
-    except Exception,e:
-	logger.error(str(e))
-    fill_obj.publish()
-
-def update_proc(total,ready):
-    logger=logging.getLogger('Publisher')
-    update_obj=Update(total,ready)
-    if update_obj.connect():
-	logger.info('Init Queue Connection Success In Update Process')
-    else:
-	logger.error('Init Queue Connection Failed In Update Process !')
-	sys.exit(1)
-    pid=os.getpid()
-    try:
-        pid=os.getpid()
-        with open(PID_FILE,'a+') as f:
-	    f.write(' '+str(pid))
-    except Exception,e:
-	logger.error(str(e))
-    update_obj.update()
-
-
-def main():
-    total=Value('i',0)
-    ready=Value('i',0)
-    proc_list=list()
-    proc_list.append(Process(target=fill_proc,args=(total,ready)))
-    proc_list.append(Process(target=update_proc,args=(total,ready)))
-    for t in proc_list:
-	t.start()
-    for t in proc_list:
-	t.join()
+    def main(self):
+	self.init_publisher()
+	func_list=[self.publish,self.update]
+	thread_list=[threading.Thread(target=x) for x in func_list]
+	for t in thread_list:
+	    t.setDaemon(True)
+	    t.start()
+	for t in thread_list:
+	    t.join()
 
 
 
