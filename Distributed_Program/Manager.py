@@ -1,8 +1,7 @@
 #!/usr/bin/python
 # -*- coding=UTF-8 -*-
 
-#说明： 该脚本用来处理淘宝优惠券过期将商品及时下架，主要有两个线程，线程一从数据库查询待处理的上架商品
-#       放入公共队列给分布于客户端的worker程序查询是否过期。线程二对返回的数据进行处理
+#说明： 该脚本为公共队列监听管理器
 from Queue import Queue
 import random
 import logging
