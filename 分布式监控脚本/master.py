@@ -34,11 +34,11 @@ _LOG_INFO={
 _PID_FILE='/var/run/master.pid'
 _DEBUG=False
 _FUNCTION_LIST=list()
-_SERVER_INFO={'server_host':'4.107.3.24',
+_SERVER_INFO={'server_host':'47.107.36.204',
 	'port':16868,
 	}
 QUEUE_INFO={
-	'queue_ip':'4.10.36.04',
+	'queue_ip':'47.107.36.204',
 	'queue_port':4502,
 	'queue_auth':'AbAbC'
 	}
@@ -50,7 +50,8 @@ REGION_CONF={'hb1':u'青岛',
 	'hd2':u'上海',
 	'hn1':u'深圳',
 	}
-EMAIL_LIST=['hjg@imlaidian.com','sys_report@imlaidian.com']
+#EMAIL_LIST=['hjg@imlaidian.com','sys_report@imlaidian.com']
+EMAIL_LIST=['hjg@imlaidian.com']
 
 
 '''
@@ -99,9 +100,11 @@ def main(queue,logger):
     while True:
 	try:
 	    recv=queue.get(timeout=6)
+	    logger.info(recv)
 	    if recv:
 		try:
 		    recv=json.loads(recv)
+		    print recv
 		    if recv['type'].lower()=='ping':
 			ping_buff.append(recv)
 		    elif recv['type'].lower() == 'api':
@@ -112,6 +115,7 @@ def main(queue,logger):
 	    logger.info('No data')
 	    break
     dowith_ping(ping_buff,logger)
+    dowith_api(api_buff,logger)
     #threads=[]
     #threads.append(threading.Thread(target=dowith_ping,args=(ping_buff,)))
     #threads.append(threading.Thread(target=dowith_api,args=(api_buff,)))
@@ -127,7 +131,6 @@ def dowith_ping(data,logger):
     if not data:
 	return
     for d in data:
-	print d
 	hostname=d['hostname']
 	target=d['target']
 	if hostname not in status['ping']:
@@ -137,14 +140,60 @@ def dowith_ping(data,logger):
 	result=d['result']
 	if result == 1:
 	    status['ping'][hostname][target]['result']=result
-	    status['ping'][hostname][target]['send_info']='Area: %s (%s) Target:%s  Time: %s Info: %s' %(d['hostname'],d['region'],d['target'],d['datetime'],d['info'])
+	    status['ping'][hostname][target]['send_info']='Visit Area: %s (%s) Target:%s  Time: %s Info: %s' %(d['hostname'],d['region'],d['target'],d['datetime'],d['info'])
 	elif result == 0:
 	    status['ping'][hostname][target]['result']=result
-	    status['ping'][hostname][target]['send_info']='Area: %s (%s) Target:%s  Time: %s Info: Ping Ok ....' %(d['hostname'],d['region'],d['target'],d['datetime'])
+	    status['ping'][hostname][target]['send_info']='Visit Area: %s (%s) Target:%s  Time: %s Info: Ping Ok ....' %(d['hostname'],d['region'],d['target'],d['datetime'])
     alert_mess='Problem Content: \nPing Check\n'
-    ok_mess='Ok Content: \nPing Check\n'
+    ok_mess='Recovery Content: \nPing Check\n'
     send_ok_flag,send_alert_flag,have_alert_new,have_ok_new=0,0,0,0
     for h,d in status['ping'].iteritems():
+	alert_info=''
+	ok_info=''
+	for t,r in d.iteritems():
+	    if r['result'] == 1 and r['send_problem_email'] == 0:
+		alert_info=alert_info+'\n'+r['send_info']
+		r['send_problem_email']=1
+		r['send_recovery_email']=0
+		send_alert_flag=1
+	    elif r['result'] == 0 and r['send_recovery_email'] == 0:
+		ok_info=ok_info+'\n'+r['send_info']
+		r['send_recovery_email']=1
+		r['send_problem_email']=0
+		send_ok_flag=1
+	alert_mess=alert_mess+alert_info
+	ok_mess=ok_mess+ok_info
+    if send_ok_flag != 0:
+	logger.info(ok_mess)
+	send_email(ok_mess)
+    if send_alert_flag != 0:
+	logger.info(alert_mess)
+	send_email(alert_mess)
+
+
+def dowith_api(data,logger):
+    global STATUS
+    status=STATUS
+    if not data:
+	return
+    for d in data:
+	hostname=d['hostname']
+	target=d['target']
+	if hostname not in status['api']:
+	    status['api'][hostname]={}
+	if target not in status['api'][hostname]:
+	    status['api'][hostname][target]={'send_problem_email':0,'send_recovery_email':1,'result':0,'send_info':''}
+	result=d['result']
+	if result == 1:
+	    status['api'][hostname][target]['result']=result
+	    status['api'][hostname][target]['send_info']='Visit Area: %s (%s) Target:%s  Time: %s Info: %s' %(d['hostname'],d['region'],d['target'],d['datetime'],d['info'])
+	elif result == 0:
+	    status['api'][hostname][target]['result']=result
+	    status['api'][hostname][target]['send_info']='Visit Area: %s (%s) Target:%s  Time: %s Info: Ping Ok ....' %(d['hostname'],d['region'],d['target'],d['datetime'])
+    alert_mess='Problem Content: \nAPI Check\n'
+    ok_mess='Recovery Content: \nAPI Check\n'
+    send_ok_flag,send_alert_flag,have_alert_new,have_ok_new=0,0,0,0
+    for h,d in status['api'].iteritems():
 	alert_info=''
 	ok_info=''
 	for t,r in d.iteritems():
@@ -172,10 +221,9 @@ def dowith_ping(data,logger):
 
 
 
-
 def send_email(mess):
-    from_addr='xxx@xxxx.com'
-    password='xxxxxx'
+    from_addr='hjg@imlaidian.com'
+    password='Mtianhui123'
     to_addrs=','.join(EMAIL_LIST)
     smtp_server='smtp.exmail.qq.com'
     msg=MIMEText(mess,'plain','utf-8')
@@ -190,9 +238,7 @@ def send_email(mess):
 
 
 
-def dowith_api(data):
-    if not data:
-	return
+
 
 
 CALL_BACKS=[main]
@@ -355,7 +401,6 @@ class Worker(object):
 	    self.logger.error(str(e))
 	    return False
     def start_loop(self):
-	#assert self.mananger,'please init the worker program'
 	while True:
 	    while True:
 		if self._init_worker(QUEUE_INFO):
@@ -375,7 +420,7 @@ class Worker(object):
 			self.logger(str(e))
 			threads.remove(t)
 		for t in threads:
-		    t.join(timeout=1200)
+		    t.join(timeout=600)
 	    self.logger.info('Sleep 10s')
 	    time.sleep(self._internal)
 	    self.logger.info('try again ')

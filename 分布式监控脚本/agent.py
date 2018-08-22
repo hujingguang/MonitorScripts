@@ -13,6 +13,7 @@ import threading
 import commands
 import copy
 from datetime import datetime
+import requests
 try:
     import simplejson
     json=simplejson
@@ -69,8 +70,6 @@ DEFAULT_DATA={
 	}
 
 def check_ping(queue,logger):
-    send_data=copy.deepcopy(DEFAULT_DATA)
-    send_data['type']='Ping'
     target={'lb-002':['106.75.48.173','lb-002.laidiantech.com','lb-002.imlaidian.com'],
 	    'lb-001':['106.75.114.82','lb-001.laidiantech.com','lb-001.imlaidian.com'],
 	    'wx-010':['wx-cdt-bj-010.imlaidian.com',],
@@ -78,7 +77,7 @@ def check_ping(queue,logger):
 	    'mobile-api':['mobile-api.imlaidian.com'],
 	    'www.imlaidian.com':['www.imlaidian.com'],
 	    'wx.imlaidian.com':['wx.imlaidian.com'],
-	    'crm-api':['crm.imlaidian.com','8.8.8.6'],
+	    'crm-api':['crm.imlaidian.com'],
 	    'terminal-api2':['terminal-api2.imlaidian.com'],
 	    }
     cmd='ping -c 2 -s 500 -w 5 -W 3 '
@@ -120,9 +119,67 @@ def check_ping(queue,logger):
 
 
 def check_api(queue,logger):
-    pass
-    
+    target={
+	    "crm_monitor_http_key":"https://crm.imlaidian.com/crm-api/crmMonitor",
+	    "crm_ad_monitor_http_key":"https://cnt.imlaidian.com/adcrm/adMonitor",
+	    "crm_api-http":"https://crm.imlaidian.com/crm-api/crmMonitor",
+	    "device_is_available_check":"https://mobile-api.imlaidian.com/cdt/deviceArgs?terminal=000020001650",
+	    "nearbylist_is_available_check":"https://mobile-api.imlaidian.com/cdt/deviceArgs?terminal=000020001650",
+	    "wx.imlaidian.com-local":"https://wx.imlaidian.com/share/js/switch.js",
+	    "wx.imlaidian.com-wx":"https://wx.imlaidian.com/weixin/css/weixin.css",
+	    "www.imlaidian.com":"https://www.imlaidian.com/css/all.min.css",
+	    }
+    for k,v in target.iteritems():
+        send_data=copy.deepcopy(DEFAULT_DATA)
+        send_data['type']='Api'
+        send_data['target']=v
+	send_data["datetime"]=datetime.strftime(datetime.now(),"%Y-%m-%d %H:%M:%S")
+	info=''
+	try:
+	    check_status=0 #0 is sucessed ,1 is failed
+	    b_time=time.time()
+	    result=requests.get(v,timeout=12)
+	    e_time=time.time()
+	    u_time=str(e_time-b_time)
+	    if result.status_code != 200:
+		info="Status_code: %s Content_Length: %s , Response Time: %s s" %(str(result.status_code),result.headers.get("Content-Length","Null"),u_time)
+		check_status=1
+	    else:
+		try:
+		    d=result.json()
+		    status=d.get('result',None)
+		    if status == 1:
+		        info="Status_code: %s Content_Length: %s , Response Time: %s s" %(str(result.status_code),result.headers.get("Content-Length","Null"),u_time)
+		    elif not status:
+		        info="Status_code: %s Content_Length: %s , Response Time: %s s" %(str(result.status_code),result.headers.get("Content-Length","Null"),u_time)
+		    else:
+			info="json data result key value is not 1"
+			check_status=1
+		except Exception as e:
+		    logger.info(str(e))
+		    info="Status_code: %s Content_Length: %s , Response Time: %s s" %(str(result.status_code),result.headers.get("Content-Length","Null"),u_time)
+	except Exception as e:
+	    check_status=1
+	    logger.info(str(e))
+	    info='响应时间超过12s'
+	send_data['info']=info
+	send_data['result']=check_status
+	try:
+	    send_data=json.dumps(send_data)
+	except Exception as e:
+	    logger.error(str(e))
+	    send_data=None
+	    continue
+	try:
+	    queue.put(send_data)
+	except Exception as e:
+	    logger.error(str(e))
+	    return
+	send_data=None
 
+
+
+    
 
 CALL_BACKS=[check_ping,check_api]
 CHECK_INTERNAL=60    
@@ -320,7 +377,7 @@ class Worker(object):
 			self.logger(str(e))
 			threads.remove(t)
 		for t in threads:
-		    t.join(timeout=120)
+		    t.join(timeout=600)
 	    self.logger.info('Sleep 60s')
             time.sleep(self._internal)
 	    self.logger.info('Start run callbacks')
