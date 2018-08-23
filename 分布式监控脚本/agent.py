@@ -3,7 +3,7 @@
 import os
 import sys
 import logging
-#import setproctitle
+import setproctitle
 from logging.handlers import RotatingFileHandler
 from signal import SIGTERM
 import time
@@ -29,10 +29,6 @@ _LOG_INFO={
 }
 _PID_FILE='/var/run/agent.pid'
 _DEBUG=False
-_FUNCTION_LIST=list()
-_SERVER_INFO={'server_host':'47.107.36.204',
-	'port':16868,
-	}
 QUEUE_INFO={
 	'queue_ip':'47.107.36.204',
 	'queue_port':4502,
@@ -52,10 +48,46 @@ for region in REGION_CONF:
     if HOSTNAME.find(region) != -1:
 	REGION=REGION_CONF[region]
 
+'''
+此处添加需要检查的API地址
+'''
+API_TARGET={
+	"crm_monitor_http_key":"https://crm.imlaidian.com/crm-api/crmMonitor",
+	"crm_ad_monitor_http_key":"https://cnt.imlaidian.com/adcrm/adMonitor",
+	"crm_api-http":"https://crm.imlaidian.com/crm-api/crmMonitor",
+	"device_is_available_check":"https://mobile-api.imlaidian.com/cdt/deviceArgs?terminal=000020001650",
+	"nearbylist_is_available_check":"https://mobile-api.imlaidian.com/cdt/deviceArgs?terminal=000020001650",
+	"wx.imlaidian.com-local":"https://wx.imlaidian.com/share/js/switch.js",
+	"wx.imlaidian.com-wx":"https://wx.imlaidian.com/weixin/css/weixin.css",
+	"www.imlaidian.com":"https://www.imlaidian.com/css/all.min.css",
+	}
+
+'''
+此处添加需要检查的Ping地址
+'''
+PING_TARGET={'lb-002':['106.75.48.173','lb-002.laidiantech.com','lb-002.imlaidian.com'],
+	'lb-001':['106.75.114.82','lb-001.laidiantech.com','lb-001.imlaidian.com'],
+	'wx-010':['wx-cdt-bj-010.imlaidian.com',],
+	'wx-007':['wx-cdt-bj-007.imlaidian.com',],
+	'mobile-api':['mobile-api.imlaidian.com'],
+	'www.imlaidian.com':['www.imlaidian.com'],
+	'wx.imlaidian.com':['wx.imlaidian.com'],
+	'crm-api':['crm.imlaidian.com'],
+	'terminal-api2':['terminal-api2.imlaidian.com'],
+	}
+
 
 
 '''
-函数返回数据格式 {"hostname":"ld-hn1-1","type":"ping","result":1,"datetime":"2018-08-20 19:00:01","target":"120.19.11.23","info":"",'region':'',"standby":''}
+函数返回数据格式 {"hostname":"ld-hn1-1",
+                   "type":"ping",
+		   "result":1,
+		   "datetime":"2018-08-20 19:00:01",
+		   "target":"120.19.11.23",
+		   "info":"",
+		   'region':'',
+		   "standby":''
+		 }
 '''
 
 DEFAULT_DATA={
@@ -70,16 +102,8 @@ DEFAULT_DATA={
 	}
 
 def check_ping(queue,logger):
-    target={'lb-002':['106.75.48.173','lb-002.laidiantech.com','lb-002.imlaidian.com'],
-	    'lb-001':['106.75.114.82','lb-001.laidiantech.com','lb-001.imlaidian.com'],
-	    'wx-010':['wx-cdt-bj-010.imlaidian.com',],
-	    'wx-007':['wx-cdt-bj-007.imlaidian.com',],
-	    'mobile-api':['mobile-api.imlaidian.com'],
-	    'www.imlaidian.com':['www.imlaidian.com'],
-	    'wx.imlaidian.com':['wx.imlaidian.com'],
-	    'crm-api':['crm.imlaidian.com'],
-	    'terminal-api2':['terminal-api2.imlaidian.com'],
-	    }
+    global PING_TARGET
+    target=PING_TARGET
     cmd='ping -c 2 -s 500 -w 5 -W 3 '
     def analyse_result(data):
 	lines=data.split('\n')
@@ -119,16 +143,8 @@ def check_ping(queue,logger):
 
 
 def check_api(queue,logger):
-    target={
-	    "crm_monitor_http_key":"https://crm.imlaidian.com/crm-api/crmMonitor",
-	    "crm_ad_monitor_http_key":"https://cnt.imlaidian.com/adcrm/adMonitor",
-	    "crm_api-http":"https://crm.imlaidian.com/crm-api/crmMonitor",
-	    "device_is_available_check":"https://mobile-api.imlaidian.com/cdt/deviceArgs?terminal=000020001650",
-	    "nearbylist_is_available_check":"https://mobile-api.imlaidian.com/cdt/deviceArgs?terminal=000020001650",
-	    "wx.imlaidian.com-local":"https://wx.imlaidian.com/share/js/switch.js",
-	    "wx.imlaidian.com-wx":"https://wx.imlaidian.com/weixin/css/weixin.css",
-	    "www.imlaidian.com":"https://www.imlaidian.com/css/all.min.css",
-	    }
+    global API_TARGET
+    target=API_TARGET
     for k,v in target.iteritems():
         send_data=copy.deepcopy(DEFAULT_DATA)
         send_data['type']='Api'
@@ -178,29 +194,8 @@ def check_api(queue,logger):
 	send_data=None
 
 
-
-    
-
 CALL_BACKS=[check_ping,check_api]
 CHECK_INTERNAL=60    
-
-
-class Socket(object):
-    def __init__(self):
-	self.server_host=_SERVER_INFO.get('server_host',None)
-	self.server_port=_SERVER_INFO.get('server_port',None)
-	self.logger=logging.getLogger('Agent')
-    def connect_server(self):
-	assert self.server_host is not None and self.server_port is not None,"server host or port not configure"
-	sk=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-	try:
-	    sk.connect((self.server_host,self.server_host))
-	except Exception as e:
-	    self.logger.error(str(e))
-
-
-
-
 
 class Daemon(object):
     def __init__(self):
@@ -263,7 +258,7 @@ class Daemon(object):
 	os.dup2(se.fileno(),sys.stderr.fileno())
 	import atexit
 	atexit.register(self.del_pidfile)
-	#setproctitle.setproctitle('agent')
+	setproctitle.setproctitle('agent')
 	pid=str(os.getpid())
 	self.logger.info(str(pid))
 	if not os.path.exists(os.path.dirname(self._pid_file)):
@@ -357,7 +352,6 @@ class Worker(object):
 	    self.logger.error(str(e))
 	    return False
     def start_loop(self):
-	#assert self.mananger,'please init the worker program'
 	while True:
 	    while True:
 		if self._init_worker(QUEUE_INFO):
