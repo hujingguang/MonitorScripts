@@ -33,14 +33,10 @@ _LOG_INFO={
 }
 _PID_FILE='/var/run/master.pid'
 _DEBUG=False
-_FUNCTION_LIST=list()
-_SERVER_INFO={'server_host':'4.17.36.204',
-	'port':16868,
-	}
 QUEUE_INFO={
-	'queue_ip':'4.17.36.204',
+	'queue_ip':'4.17.6.24',
 	'queue_port':4502,
-	'queue_auth':'AbAbC'
+	'queue_auth':'C'
 	}
 REGION_CONF={'hb1':u'青岛',
 	'hb2':u'北京',
@@ -49,9 +45,9 @@ REGION_CONF={'hb1':u'青岛',
 	'hd1':u'杭州',
 	'hd2':u'上海',
 	'hn1':u'深圳',
+	'hk':u'香港',
 	}
-#EMAIL_LIST=['hjg@imlaidian.com','sys_report@imlaidian.com']
-EMAIL_LIST=['hjg@imlaidian.com']
+EMAIL_LIST=['xxx@qq.com']
 
 
 '''
@@ -73,29 +69,14 @@ Status={
       }
 '''
 STATUS={'api':{},'ping':{}}
-
-
 CHECK_INTERNAL=10
 
-
-class Socket(object):
-    def __init__(self):
-	self.server_host=_SERVER_INFO.get('server_host',None)
-	self.server_port=_SERVER_INFO.get('server_port',None)
-	self.logger=logging.getLogger('Master')
-    def connect_server(self):
-	assert self.server_host is not None and self.server_port is not None,"server host or port not configure"
-	sk=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-	try:
-	    sk.connect((self.server_host,self.server_host))
-	except Exception as e:
-	    self.logger.error(str(e))
 
 
 
 def main(queue,logger):
-    ping_buff=[]
-    api_buff=[]
+    global STATUS
+    all_buff=dict()
     n=0
     while True:
 	try:
@@ -104,18 +85,22 @@ def main(queue,logger):
 	    if recv:
 		try:
 		    recv=json.loads(recv)
-		    print recv
-		    if recv['type'].lower()=='ping':
-			ping_buff.append(recv)
-		    elif recv['type'].lower() == 'api':
-			api_buff.append(recv)
+		    _type=recv['type'].lower()
+		    if _type not in all_buff:
+			all_buff[_type]=[]
+		    if _type in STATUS:
+			all_buff[_type].append(recv)
+		    else:
+			back=json.dumps(recv)
+			queue.put(back)
 		except Exception as e:
 		    logger.error(str(e))
 	except Exception as e:
 	    logger.info('No data')
 	    break
-    dowith_ping(ping_buff,logger)
-    dowith_api(api_buff,logger)
+    dowith_all(all_buff,logger)
+    #dowith_ping(ping_buff,logger)
+    #dowith_api(api_buff,logger)
     #threads=[]
     #threads.append(threading.Thread(target=dowith_ping,args=(ping_buff,)))
     #threads.append(threading.Thread(target=dowith_api,args=(api_buff,)))
@@ -123,6 +108,57 @@ def main(queue,logger):
     #    t.start()
     #for t in threads:
     #    t.join()
+
+def dowith_all(data_dict,logger):
+    global STATUS
+    status=STATUS
+    if not data_dict:
+	return
+    for t,data in data_dict.iteritems():
+	for d in data:
+	    hostname=d['hostname']
+	    target=d['target']
+	    if hostname not in status[t]:
+		status[t][hostname]={}
+	    if target not in status[t][hostname]:
+		status[t][hostname][target]={'send_problem_email':0,'send_recovery_email':1,'result':0,'send_info':''}
+	    result=d['result']
+	    if result == 1:
+		status[t][hostname][target]['result']=result
+		info='Visit Area: %s (%s) Target:%s  Time: %s Info: %s' %(d['hostname'],d['region'],d['target'],d['datetime'],d['info'])
+		status[t][hostname][target]['send_info']=info
+	    elif result == 0:
+		status[t][hostname][target]['result']=result
+		info='Visit Area: %s (%s) Target:%s  Time: %s Info: Ping Ok ....' %(d['hostname'],d['region'],d['target'],d['datetime'])
+		status[t][hostname][target]['send_info']=info
+	alert_mess='Problem Content: \n %s Check\n' %(t.upper())
+	ok_mess='Recovery Content: \n %s Check\n'   %(t.upper())
+	send_ok_flag,send_alert_flag =0,0
+	for h,d in status[t].iteritems():
+	    alert_info=''
+	    ok_info=''
+	    for t,r in d.iteritems():
+		if r['result'] == 1 and r['send_problem_email'] == 0:
+		    alert_info=alert_info+'\n\n'+r['send_info']
+		    r['send_problem_email']=1
+		    r['send_recovery_email']=0
+		    send_alert_flag=1
+		elif r['result'] == 0 and r['send_recovery_email'] == 0:
+		    ok_info=ok_info+'\n\n'+r['send_info']
+		    r['send_recovery_email']=1
+		    r['send_problem_email']=0
+		    send_ok_flag=1
+	    alert_mess=alert_mess+alert_info
+	    ok_mess=ok_mess+ok_info
+	if send_ok_flag != 0:
+	    logger.info(ok_mess,'恢复')
+	    send_email(ok_mess)
+	if send_alert_flag != 0:
+	    logger.info(alert_mess)
+	    send_email(alert_mess,"告警")
+
+
+
 
 
 def dowith_ping(data,logger):
@@ -140,10 +176,12 @@ def dowith_ping(data,logger):
 	result=d['result']
 	if result == 1:
 	    status['ping'][hostname][target]['result']=result
-	    status['ping'][hostname][target]['send_info']='Visit Area: %s (%s) Target:%s  Time: %s Info: %s' %(d['hostname'],d['region'],d['target'],d['datetime'],d['info'])
+	    info='Visit Area: %s (%s) Target:%s  Time: %s Info: %s' %(d['hostname'],d['region'],d['target'],d['datetime'],d['info'])
+	    status['ping'][hostname][target]['send_info']=info
 	elif result == 0:
 	    status['ping'][hostname][target]['result']=result
-	    status['ping'][hostname][target]['send_info']='Visit Area: %s (%s) Target:%s  Time: %s Info: Ping Ok ....' %(d['hostname'],d['region'],d['target'],d['datetime'])
+	    info='Visit Area: %s (%s) Target:%s  Time: %s Info: Ping Ok ....' %(d['hostname'],d['region'],d['target'],d['datetime'])
+	    status['ping'][hostname][target]['send_info']=info
     alert_mess='Problem Content: \nPing Check\n'
     ok_mess='Recovery Content: \nPing Check\n'
     send_ok_flag,send_alert_flag,have_alert_new,have_ok_new=0,0,0,0
@@ -152,12 +190,12 @@ def dowith_ping(data,logger):
 	ok_info=''
 	for t,r in d.iteritems():
 	    if r['result'] == 1 and r['send_problem_email'] == 0:
-		alert_info=alert_info+'\n'+r['send_info']
+		alert_info=alert_info+'\n\n'+r['send_info']
 		r['send_problem_email']=1
 		r['send_recovery_email']=0
 		send_alert_flag=1
 	    elif r['result'] == 0 and r['send_recovery_email'] == 0:
-		ok_info=ok_info+'\n'+r['send_info']
+		ok_info=ok_info+'\n\n'+r['send_info']
 		r['send_recovery_email']=1
 		r['send_problem_email']=0
 		send_ok_flag=1
@@ -186,10 +224,12 @@ def dowith_api(data,logger):
 	result=d['result']
 	if result == 1:
 	    status['api'][hostname][target]['result']=result
-	    status['api'][hostname][target]['send_info']='Visit Area: %s (%s) Target:%s  Time: %s Info: %s' %(d['hostname'],d['region'],d['target'],d['datetime'],d['info'])
+	    info='Visit Area: %s (%s) Target:%s  Time: %s Info: %s' %(d['hostname'],d['region'],d['target'],d['datetime'],d['info'])
+	    status['api'][hostname][target]['send_info']=info
 	elif result == 0:
 	    status['api'][hostname][target]['result']=result
-	    status['api'][hostname][target]['send_info']='Visit Area: %s (%s) Target:%s  Time: %s Info: Ping Ok ....' %(d['hostname'],d['region'],d['target'],d['datetime'])
+	    info='Visit Area: %s (%s) Target:%s  Time: %s Info: Check API  Ok ....' %(d['hostname'],d['region'],d['target'],d['datetime'])
+	    status['api'][hostname][target]['send_info']=info
     alert_mess='Problem Content: \nAPI Check\n'
     ok_mess='Recovery Content: \nAPI Check\n'
     send_ok_flag,send_alert_flag,have_alert_new,have_ok_new=0,0,0,0
@@ -198,36 +238,34 @@ def dowith_api(data,logger):
 	ok_info=''
 	for t,r in d.iteritems():
 	    if r['result'] == 1 and r['send_problem_email'] == 0:
-		alert_info=alert_info+'\n'+r['send_info']
+		alert_info=alert_info+'\n\n'+r['send_info']
 		r['send_problem_email']=1
 		r['send_recovery_email']=0
 		send_alert_flag=1
 	    elif r['result'] == 0 and r['send_recovery_email'] == 0:
-		ok_info=ok_info+'\n'+r['send_info']
+		ok_info=ok_info+'\n\n'+r['send_info']
 		r['send_recovery_email']=1
 		r['send_problem_email']=0
 		send_ok_flag=1
 	alert_mess=alert_mess+alert_info
 	ok_mess=ok_mess+ok_info
     if send_ok_flag != 0:
-	logger.info(ok_mess)
+	logger.info(ok_mess,'恢复')
 	send_email(ok_mess)
     if send_alert_flag != 0:
 	logger.info(alert_mess)
-	send_email(alert_mess)
+	send_email(alert_mess,'告警')
 
 
 
 
-
-
-def send_email(mess):
-    from_addr='xxx@xxx.com'
-    password='xxx'
+def send_email(mess,subject):
+    from_addr='xxx@qq.com'
+    password='xxxx'
     to_addrs=','.join(EMAIL_LIST)
     smtp_server='smtp.exmail.qq.com'
     msg=MIMEText(mess,'plain','utf-8')
-    msg['From']=formataddr((Header('API和Ping接口检测','utf-8').encode(),from_addr))
+    msg['From']=formataddr((Header('API和Ping接口检测'+subject,'utf-8').encode(),from_addr))
     msg['To']=formataddr((Header(u'System Admin','utf-8').encode(),to_addrs))
     msg['Subject']=Header('Agent Report','utf-8').encode()
     server=smtplib.SMTP_SSL(smtp_server,465)
@@ -237,15 +275,13 @@ def send_email(mess):
     server.quit()
 
 
-
-
-
-
 CALL_BACKS=[main]
 
 
-
 class Daemon(object):
+    '''
+    守护进程类,初始化日志和启动,关闭
+    '''
     def __init__(self):
 	self._pid_file=_PID_FILE
 	self._std_in_file='/dev/null'
@@ -280,7 +316,6 @@ class Daemon(object):
 	if not self.logger_ok:
 	    self.logger_ok=True
 	    self.set_logger()
-
 
     def daemonize(self):
 	try:
@@ -423,7 +458,6 @@ class Worker(object):
 		    t.join(timeout=600)
 	    self.logger.info('Sleep 10s')
 	    time.sleep(self._internal)
-	    self.logger.info('try again ')
 
 
 
