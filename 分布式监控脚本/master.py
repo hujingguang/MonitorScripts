@@ -48,7 +48,7 @@ REGION_CONF={'hb1':u'青岛',
 	'hn1':u'深圳',
 	'hk':u'香港',
 	}
-EMAIL_LIST=['xx@im.com']
+EMAIL_LIST=['xx@xx.com']
 
 
 '''
@@ -157,11 +157,30 @@ def dowith_all(data_dict,logger):
 	    alert_mess=alert_mess+alert_info
 	    ok_mess=ok_mess+ok_info
 	if send_ok_flag != 0:
-	    logger.info(ok_mess,'恢复')
-	    send_email(ok_mess)
+	    send_result=0
+	    while True:
+		if send_result == 1:
+		    break
+		try:
+	            logger.info(ok_mess,'恢复')
+	            send_email(ok_mess)
+		    send_result=1
+		except Exception as e:
+		    logger.info(str(e))
+		    logger.info('发送邮件失败,3s后重试')
+		    time.sleep(3)
 	if send_alert_flag != 0:
-	    logger.info(alert_mess)
-	    send_email(alert_mess,"告警")
+	    send_result=0
+	    while True:
+		if send_result == 1:
+		    break
+		try:
+	            logger.info(alert_mess)
+	            send_email(alert_mess,"告警")
+		except Exception as e:
+		    logger.info(str(e))
+		    logger.info('发送邮件失败,3s后重试')
+		    time.sleep(3)
 
 
 
@@ -267,7 +286,7 @@ def dowith_api(data,logger):
 
 def send_email(mess,subject):
     from_addr='xx@xx.com'
-    password='xxxxx'
+    password='xxxx'
     to_addrs=','.join(EMAIL_LIST)
     smtp_server='smtp.exmail.qq.com'
     msg=MIMEText(mess,'plain','utf-8')
