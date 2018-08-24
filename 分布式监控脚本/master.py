@@ -177,6 +177,7 @@ def dowith_all(data_dict,logger):
 		try:
 	            logger.info(alert_mess)
 	            send_email(alert_mess,"告警")
+		    send_result=1
 		except Exception as e:
 		    logger.info(str(e))
 		    logger.info('发送邮件失败,3s后重试')
