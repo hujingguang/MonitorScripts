@@ -33,10 +33,11 @@ _LOG_INFO={
 }
 _PID_FILE='/var/run/master.pid'
 _DEBUG=False
+_DEAD_LINE=60
 QUEUE_INFO={
-	'queue_ip':'4.17.6.24',
+	'queue_ip':'47.107.36.204',
 	'queue_port':4502,
-	'queue_auth':'C'
+	'queue_auth':'AbAbC'
 	}
 REGION_CONF={'hb1':u'青岛',
 	'hb2':u'北京',
@@ -47,7 +48,7 @@ REGION_CONF={'hb1':u'青岛',
 	'hn1':u'深圳',
 	'hk':u'香港',
 	}
-EMAIL_LIST=['xxx@qq.com']
+EMAIL_LIST=['xx@im.com']
 
 
 '''
@@ -75,10 +76,15 @@ CHECK_INTERNAL=10
 
 
 def main(queue,logger):
-    global STATUS
+    global STATUS,_DEADLINE
     all_buff=dict()
     n=0
+    begin_sec=int(time.time())
     while True:
+	current_sec=int(time.time())
+	if current_sec - begin_sec > _DEAD_LINE:
+	    logger.info('超过最大处理时间,停止获取数据,开始处理监控数据')
+	    break
 	try:
 	    recv=queue.get(timeout=6)
 	    logger.info(recv)
@@ -260,8 +266,8 @@ def dowith_api(data,logger):
 
 
 def send_email(mess,subject):
-    from_addr='xxx@qq.com'
-    password='xxxx'
+    from_addr='xx@xx.com'
+    password='xxxxx'
     to_addrs=','.join(EMAIL_LIST)
     smtp_server='smtp.exmail.qq.com'
     msg=MIMEText(mess,'plain','utf-8')
