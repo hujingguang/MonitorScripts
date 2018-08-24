@@ -275,8 +275,8 @@ def dowith_api(data,logger):
 	alert_mess=alert_mess+alert_info
 	ok_mess=ok_mess+ok_info
     if send_ok_flag != 0:
-	logger.info(ok_mess,'恢复')
-	send_email(ok_mess)
+	logger.info(ok_mess)
+	send_email(ok_mess,'恢复')
     if send_alert_flag != 0:
 	logger.info(alert_mess)
 	send_email(alert_mess,'告警')
