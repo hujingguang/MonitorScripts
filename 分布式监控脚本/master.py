@@ -33,11 +33,11 @@ _LOG_INFO={
 }
 _PID_FILE='/var/run/master.pid'
 _DEBUG=False
-_DEAD_LINE=60
+_DEAD_LINE=90
 QUEUE_INFO={
-	'queue_ip':'47.107.36.204',
+	'queue_ip':'4.10.3.204',
 	'queue_port':4502,
-	'queue_auth':'AbAbC'
+	'queue_auth':'Ab'
 	}
 REGION_CONF={'hb1':u'青岛',
 	'hb2':u'北京',
@@ -135,10 +135,10 @@ def dowith_all(data_dict,logger):
 		status[t][hostname][target]['send_info']=info
 	    elif result == 0:
 		status[t][hostname][target]['result']=result
-		info='Visit Area: %s (%s) Target:%s  Time: %s Info: Ping Ok ....' %(d['hostname'],d['region'],d['target'],d['datetime'])
+		info='Visit Area: %s (%s) Target:%s  Time: %s Info: Check  Ok ....' %(d['hostname'],d['region'],d['target'],d['datetime'])
 		status[t][hostname][target]['send_info']=info
-	alert_mess='Problem Content: \n %s Check\n' %(t.upper())
-	ok_mess='Recovery Content: \n %s Check\n'   %(t.upper())
+	alert_mess='PROBLEM: \n %s Check\n' %(t.upper())
+	ok_mess='RECOVERY: \n %s Check\n'   %(t.upper())
 	send_ok_flag,send_alert_flag =0,0
 	for h,d in status[t].iteritems():
 	    alert_info=''
@@ -162,8 +162,8 @@ def dowith_all(data_dict,logger):
 		if send_result == 1:
 		    break
 		try:
-	            logger.info(ok_mess,'恢复')
-	            send_email(ok_mess)
+	            logger.info(ok_mess)
+	            send_email(ok_mess,"RECOVERY")
 		    send_result=1
 		except Exception as e:
 		    logger.info(str(e))
@@ -176,7 +176,7 @@ def dowith_all(data_dict,logger):
 		    break
 		try:
 	            logger.info(alert_mess)
-	            send_email(alert_mess,"告警")
+	            send_email(alert_mess,"PROBLEM")
 		    send_result=1
 		except Exception as e:
 		    logger.info(str(e))

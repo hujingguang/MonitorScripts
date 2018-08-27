@@ -31,8 +31,8 @@ _PID_FILE='/var/run/agent.pid'
 _DEBUG=False
 QUEUE_INFO={
 	'queue_ip':'4.17.6.24',
-	'queue_port':402,
-	'queue_auth':'xxxx'
+	'queue_port':4502,
+	'queue_auth':'Ab'
 	}
 r,HOSTNAME=commands.getstatusoutput('hostname')
 REGION_CONF={'hb1':'青岛',
@@ -42,6 +42,7 @@ REGION_CONF={'hb1':'青岛',
 	'hd1':'杭州',
 	'hd2':'上海',
 	'hn1':'深圳',
+	'hk':'香港',
 	}
 REGION=''
 for region in REGION_CONF:
@@ -52,14 +53,30 @@ for region in REGION_CONF:
 此处添加需要检查的API地址
 '''
 API_TARGET={
-	"www.xx.com":"https://www.xxx.com/css/all.min.css",
+	"crm_monitor_http_key":"https://crm.imlaidian.com/crm-api/crmMonitor",
+	"crm_ad_monitor_http_key":"https://cnt.imlaidian.com/adcrm/adMonitor",
+	"crm_api-http":"https://crm.imlaidian.com/crm-api/crmMonitor",
+	"device_is_available_check":"https://mobile-api.imlaidian.com/cdt/deviceArgs?terminal=000020001650",
+	"wx.imlaidian.com-local":"https://wx.imlaidian.com/share/js/switch.js",
+	"wx.imlaidian.com-wx":"https://wx.imlaidian.com/weixin/css/weixin.css",
+	"www.imlaidian.com":"https://www.imlaidian.com/css/all.min.css",
+	"online_ad_monitor":"https://ad.imlaidian.com/ad-job-api/monitor",
+	"bg_web":"https://bg.imlaidian.com",
+	"ali_web":"https://ali.imlaidian.com/share",
 	}
 
 '''
 此处添加需要检查的Ping地址
 '''
-PING_TARGET={
-	'wx-010':['8.8.8.8',],
+PING_TARGET={'lb-002':['106.75.48.173','lb-002.laidiantech.com','lb-002.imlaidian.com'],
+	'lb-001':['106.75.114.82','lb-001.laidiantech.com','lb-001.imlaidian.com'],
+	'wx-010':['wx-cdt-bj-010.imlaidian.com',],
+	'wx-007':['wx-cdt-bj-007.imlaidian.com',],
+	'mobile-api':['mobile-api.imlaidian.com'],
+	'www.imlaidian.com':['www.imlaidian.com'],
+	'wx.imlaidian.com':['wx.imlaidian.com'],
+	'crm-api':['crm.imlaidian.com'],
+	'terminal-api2':['terminal-api2.imlaidian.com'],
 	}
 
 
@@ -90,7 +107,6 @@ DEFAULT_DATA={
 def check_ping(queue,logger):
     global PING_TARGET
     target=PING_TARGET
-    cmd='ping -c 2 -s 500 -w 5 -W 3 '
     def analyse_result(data):
 	lines=data.split('\n')
 	loss,avg_time,run_time,result=0,0,'',0
@@ -100,7 +116,7 @@ def check_ping(queue,logger):
 		run_time=line.split(',')[3].split(' ')[-1]
 	    if line.find('rtt') != -1:
 		avg_time=float(line.split(' ')[3].split('/')[1])
-        if loss>=50 or avg_time >= 1000:
+        if loss>=25 or avg_time >= 1000:
 	    result=1
 	info='packet loss : {0}%, total run time: {1} , avg time: {2} ms'.format(str(loss),run_time,str(avg_time))
 	return [result,avg_time,run_time,loss,info]
@@ -109,7 +125,7 @@ def check_ping(queue,logger):
 	for ip in v:
             send_data=copy.deepcopy(DEFAULT_DATA)
             send_data['type']='Ping'
-            cmd='ping -c 2 -s 500 -w 5 -W 3 '+ip
+            cmd='ping -c 4 -s 500 -w 5 -W 3 '+ip
 	    code,result=commands.getstatusoutput(cmd)
 	    send_data["datetime"]=datetime.strftime(datetime.now(),"%Y-%m-%d %H:%M:%S")
 	    result=analyse_result(result)
@@ -179,9 +195,10 @@ def check_api(queue,logger):
 	    return
 	send_data=None
 
-
+#callbacks 填入编写的监控插件函数名,按照规定的数据格式返回数据
 CALL_BACKS=[check_ping,check_api]
-CHECK_INTERNAL=60    
+#检测时间间隔
+CHECK_INTERNAL=50
 
 class Daemon(object):
     def __init__(self):
@@ -358,7 +375,7 @@ class Worker(object):
 			threads.remove(t)
 		for t in threads:
 		    t.join(timeout=600)
-	    self.logger.info('Sleep 60s')
+	    self.logger.info('Sleep %d s' %(self._internal))
             time.sleep(self._internal)
 	    self.logger.info('Start run callbacks')
 		    
